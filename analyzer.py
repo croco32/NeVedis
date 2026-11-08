@@ -66,7 +66,7 @@ def build_system_prompt(message: str, rule_result: dict, channel: str, attachmen
 def _client():
     key = os.getenv("GEMINI_API_KEY", "").strip()
     if not key:
-        raise GeminiUnavailable("No Gemini API key is set, so this check used NeVedis's built-in rules only.")
+        raise GeminiUnavailable("No Gemini API key is set on the server (GEMINI_API_KEY).")
     return genai.Client(api_key=key, http_options=types.HttpOptions(timeout=TIMEOUT_S * 1000))
 
 

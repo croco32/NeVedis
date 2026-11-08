@@ -51,11 +51,24 @@ const files = { image: null, audio: null };
 const msg = $('#msg');
 function autosize() { msg.style.height = 'auto'; msg.style.height = Math.min(msg.scrollHeight, 420) + 'px'; }
 msg.addEventListener('input', autosize);
-function addFile(f) {
+const MAX_UPLOAD = 4 * 1024 * 1024; // the web host accepts 4.5 MB per request
+// Screenshots are shrunk in the browser (max 1800 px, JPEG) so they upload fast and fit the limit.
+async function shrinkImage(f) {
+  if (f.size < 900 * 1024) return f;
+  try {
+    const bmp = await createImageBitmap(f), scale = Math.min(1, 1800 / Math.max(bmp.width, bmp.height));
+    const c = document.createElement('canvas'); c.width = Math.round(bmp.width * scale); c.height = Math.round(bmp.height * scale);
+    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+    const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.86));
+    return blob && blob.size < f.size ? new File([blob], f.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' }) : f;
+  } catch { return f; }
+}
+async function addFile(f) {
   if (!f) return;
   const kind = f.type.startsWith('image/') ? 'image' : (f.type.startsWith('audio/') || /\.(m4a|mp3|wav)$/i.test(f.name)) ? 'audio' : null;
   if (!kind) return toast('Use a screenshot (PNG/JPG) or a recording (MP3/WAV/M4A).');
-  if (f.size > 15 * 1024 * 1024) return toast('That file is over 15 MB.');
+  if (kind === 'image') f = await shrinkImage(f);
+  if (f.size > MAX_UPLOAD) return toast(kind === 'audio' ? 'Recordings must be under 4 MB. Try a shorter clip (about 2 minutes).' : 'That screenshot is too big. Try cropping it.');
   files[kind] = f; drawChips();
 }
 function drawChips() {
@@ -105,7 +118,8 @@ async function check() {
   try {
     const ctrl = new AbortController(); const kill = setTimeout(() => ctrl.abort(), 80000);
     const r = await fetch('/api/check', { method: 'POST', body: fd, signal: ctrl.signal }); clearTimeout(kill);
-    data = await r.json(); if (!r.ok) err = data.detail || 'Something went wrong.';
+    data = await r.json().catch(() => ({}));
+    if (!r.ok) err = r.status === 413 ? 'That file is too big. Use a screenshot or a recording under 4 MB.' : data.detail || 'Something went wrong. Please try again.';
   } catch (e) { err = e.name === 'AbortError' ? 'That took too long. Please try again.' : 'Could not reach NeVedis. Is the server running?'; }
   clearInterval(stepT); clearInterval(tipT);
   $('#scan-view').hidden = true; $('#scan-view').classList.remove('scanning'); $('#go').disabled = false;

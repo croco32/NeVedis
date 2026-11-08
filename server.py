@@ -1,8 +1,11 @@
-"""NeVedis web server.  Run:  .venv/bin/python server.py   then open http://127.0.0.1:8501"""
+"""NeVedis web server.  Run:  .venv/bin/python server.py   then open http://127.0.0.1:8501
+Deploys to Vercel as-is: Vercel finds the FastAPI `app` in server.py (see README)."""
+import time
+from collections import defaultdict, deque
 from pathlib import Path
 
 import uvicorn
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -10,11 +13,35 @@ import analyzer
 import scams
 
 HERE = Path(__file__).parent
-MAX_BYTES = 15 * 1024 * 1024
+MAX_BYTES = 4 * 1024 * 1024  # Vercel accepts at most 4.5 MB per request; the page shrinks screenshots first
 PORT = 8501
 
 app = FastAPI(title="NeVedis", docs_url=None, redoc_url=None, openapi_url=None)
 app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
+
+
+# Fair use: each visitor gets a limited number of AI checks, so nobody can drain the shared Gemini quota.
+LIMITS = [(10 * 60, 8, "10 minutes"), (24 * 3600, 40, "day")]
+_hits: dict[str, deque] = defaultdict(deque)
+
+
+def client_ip(request: Request) -> str:
+    fwd = request.headers.get("x-forwarded-for", "")  # set by Vercel's edge; locally there is none
+    return fwd.split(",")[0].strip() or (request.client.host if request.client else "unknown")
+
+
+def over_limit(ip: str) -> str | None:
+    now, q = time.time(), _hits[ip]
+    while q and q[0] < now - 24 * 3600:
+        q.popleft()
+    for window, cap, label in LIMITS:
+        if sum(1 for t in q if t > now - window) >= cap:
+            return f"You've done {cap} checks in the last {label}. Please wait a bit and try again."
+    q.append(now)
+    if len(_hits) > 50_000:  # keep memory bounded
+        for k in [k for k, v in _hits.items() if not v or v[-1] < now - 24 * 3600]:
+            del _hits[k]
+    return None
 
 
 def sniff(head: bytes) -> tuple[str, str] | None:
@@ -45,13 +72,13 @@ def library():
 
 
 @app.post("/api/check")
-def check(text: str = Form(""), files: list[UploadFile] = File(default=[])):
+def check(request: Request, text: str = Form(""), files: list[UploadFile] = File(default=[])):
     text = text[:20000]
     image = audio = None
     for f in files[:4]:
         data = f.file.read(MAX_BYTES + 1)
         if len(data) > MAX_BYTES:
-            raise HTTPException(413, f"{f.filename} is bigger than 15 MB.")
+            raise HTTPException(413, f"{f.filename} is bigger than 4 MB. Try a shorter recording or a smaller screenshot.")
         kind = sniff(data[:16])
         if not kind:
             raise HTTPException(415, f"{f.filename}: NeVedis reads screenshots (PNG, JPG, WEBP) and recordings (MP3, WAV, M4A).")
@@ -61,6 +88,8 @@ def check(text: str = Form(""), files: list[UploadFile] = File(default=[])):
             audio = (data, kind[1])
     if not text.strip() and not image and not audio:
         raise HTTPException(400, "Paste a message, or add a screenshot or a recording.")
+    if msg := over_limit(client_ip(request)):
+        raise HTTPException(429, msg)
     return analyzer.analyze(text, "Unknown", image, audio)
 
 

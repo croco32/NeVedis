@@ -55,6 +55,20 @@ Change the model in `config.py` (one line).
 
 **Free Gemini plan limits:** Google's free plan allows about 20 checks per day per model. NeVedis automatically falls back to the backup models listed in `config.py` when one runs out or is busy. If every model is unavailable, NeVedis says **"Couldn't check this yet"** instead of guessing. It only gives a rules-only verdict when the instant checks find real red flags. For heavier use, turn on billing for your key in Google AI Studio.
 
+## Put it online (Vercel)
+
+NeVedis deploys to Vercel with no code changes. Vercel finds the FastAPI `app` in `server.py` and serves `static/` from its CDN.
+
+1. Push this repository to GitHub.
+2. On [vercel.com](https://vercel.com), choose **Add New → Project** and import the repository. Vercel detects FastAPI on its own.
+3. Under **Environment Variables**, add `GEMINI_API_KEY` with your key. Never commit the key.
+4. Click **Deploy**. Every later push to `main` redeploys automatically.
+
+Built for the web host:
+- Screenshots are shrunk in the browser before upload. Recordings must be under 4 MB (Vercel accepts 4.5 MB per request).
+- **Fair use:** each visitor gets 8 checks per 10 minutes and 40 per day, so nobody can drain the shared Gemini quota. This is counted per server instance, which is good enough for a free demo. Use the Vercel Firewall for stricter limits.
+- `vercel.json` caps each check at 90 seconds.
+
 ## Privacy
 
 Messages and files you check are sent to Google Gemini to be analyzed. Nothing is stored by NeVedis. The game and the field guide work fully offline.
