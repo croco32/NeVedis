@@ -20,7 +20,7 @@ from google.genai import errors, types
 
 import rules
 import scams
-from config import MODEL
+from config import BACKUP_MODELS, MODEL
 
 HERE = Path(__file__).parent
 load_dotenv(HERE / ".env")
@@ -91,15 +91,27 @@ def _ask_gemini(system_prompt: str, files: list[tuple[bytes, str]]) -> dict:
         temperature=0.2,
         thinking_config=types.ThinkingConfig(thinking_level=types.ThinkingLevel.LOW),
     )
-    for attempt in (1, 2):  # retry once if the answer is not valid JSON for the schema
-        r = client.models.generate_content(model=MODEL, contents=[types.Content(role="user", parts=parts)], config=config)
+    contents = [types.Content(role="user", parts=parts)]
+    last_err = None
+    # Main model first; if it is missing, out of quota or busy, move straight to the next model.
+    for model in [MODEL, *[m for m in BACKUP_MODELS if m != MODEL]]:
         try:
-            data = json.loads(r.text or "")
-            if _valid(data):
-                return data
-        except json.JSONDecodeError:
-            pass
-    raise GeminiUnavailable("The AI gave an unreadable answer twice, so this check used NeVedis's built-in rules only.")
+            for attempt in (1, 2):  # retry once if the answer is not valid JSON for the schema
+                r = client.models.generate_content(model=model, contents=contents, config=config)
+                try:
+                    data = json.loads(r.text or "")
+                    if _valid(data):
+                        data["_model"] = model
+                        return data
+                except json.JSONDecodeError:
+                    pass
+            raise GeminiUnavailable("The AI gave an unreadable answer twice, so this check used NeVedis's built-in rules only.")
+        except errors.APIError as e:
+            if e.code in (404, 429, 500, 503):  # missing, out of quota, or busy: try the next model
+                last_err = e
+                continue
+            raise
+    raise last_err
 
 
 def _friendly(e: Exception) -> str:
@@ -110,11 +122,13 @@ def _friendly(e: Exception) -> str:
     if isinstance(e, errors.APIError):
         if e.code in (400, 401, 403) and "key" in str(e).lower():
             return "The Gemini API key was rejected, so this check used NeVedis's built-in rules only."
+        if e.code == 429 and "perday" in str(e).lower().replace(" ", ""):
+            return "Today's free AI checks are used up (Google's free plan allows a limited number per day). They reset tomorrow."
         if e.code in (429, 500, 503, 504):
-            return "The AI is busy right now (Google reports high demand). This result uses NeVedis's built-in rules only. Try again in a minute."
+            return "The AI is busy right now (Google reports high demand). Try again in a minute."
         if e.code == 400 and ("mime" in str(e).lower() or "unsupported" in str(e).lower()):
             return "The AI couldn't read that file type, so this check used NeVedis's built-in rules only."
-    return "The AI check is not available right now, so this result uses NeVedis's built-in rules only."
+    return "The AI check is not available right now."
 
 
 # ---------- scoring ----------
@@ -196,11 +210,21 @@ def analyze(text: str, channel: str = "Unknown", image: tuple[bytes, str] | None
     except Exception as e:  # noqa: BLE001 - every failure becomes a friendly rules-only result
         notice = _friendly(e)
 
+    used_model = gemini.pop("_model", MODEL) if gemini else MODEL
     rule_hard = [s for s in rule_result["signals"] if s["kind"] == "hard"]
     gem_hard = [f for f in (gemini or {}).get("hard_red_flags", []) if f in HARD_FLAG_IDS]
     hard = bool(rule_hard or gem_hard)
-    if not gemini and not text.strip():
-        notice = (notice or "") + " Without the AI, NeVedis can't read screenshots or audio, so this result is incomplete."
+    # Without the AI we can't judge pictures, audio, or a story with no keywords. Never show a calm
+    # "low" result we can't stand behind: only trust rules-only when they found real red flags.
+    if not gemini and combine(None, rule_result["rule_score"], hard) < 40:
+        why = ("NeVedis can't read screenshots or recordings without the AI." if not text.strip()
+               else "Our instant checks found no red flags, but they can't judge the story itself.")
+        return {"final_score": None, "verdict": "unknown", "gemini_score": None, "rule_score": rule_result["rule_score"],
+                "hard": hard, "hard_ids": [], "category": None, "scam_type": None, "three_p": None,
+                "summary": f"{why} Please try again soon. Until then, don't reply, click, or pay, and check with the company's official number.",
+                "what_to_do": ["Don't reply, click links, or pay anything yet.", "Call the company or person using a number you already know, not one in the message.", "Try NeVedis again in a little while."],
+                "red_flags": [], "rule_signals": rule_result["signals"], "links": rule_result["links"], "family": None,
+                "next_move": "", "share_warning": "", "notice": notice, "seconds": round(time.monotonic() - t0, 1), "model": MODEL}
     final = combine(gemini["risk_score"] if gemini else None, rule_result["rule_score"], hard, bool(text.strip()), len(rule_result["signals"]))
     verdict = verdict_for(final)
 
@@ -225,5 +249,5 @@ def analyze(text: str, channel: str = "Unknown", image: tuple[bytes, str] | None
         "summary": summary, "what_to_do": steps, "three_p": (gemini or {}).get("three_p"),
         "red_flags": (gemini or {}).get("red_flags", []), "rule_signals": rule_result["signals"],
         "links": rule_result["links"], "family": family, "next_move": next_move, "share_warning": share,
-        "notice": notice, "seconds": round(time.monotonic() - t0, 1), "model": MODEL,
+        "notice": notice, "seconds": round(time.monotonic() - t0, 1), "model": used_model,
     }

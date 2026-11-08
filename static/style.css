@@ -261,3 +261,4 @@ footer{max-width:760px;margin:10px auto 30px;padding:0 20px;color:var(--mut);fon
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 .mv-text mark{background:linear-gradient(transparent 50%,#ffe27a 50%);color:inherit;font-weight:700;padding:0 2px;border-radius:2px}
 .msgview.phone_call .mv-text mark,.msgview.voicemail .mv-text mark{background:linear-gradient(transparent 50%,rgba(255,170,29,.55) 50%)}
+.verdict.unknown{background:linear-gradient(150deg,#fff 30%,#f1eef8)}.verdict.unknown .v-title{color:#5d5679}

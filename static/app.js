@@ -85,8 +85,10 @@ msg.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.metaKey || e.
 
 /* ---------- checking ---------- */
 const SCAN_STEPS = ['Reading the message', 'X-raying every link', 'Checking sender tricks', 'Comparing with 28 scam playbooks', 'Writing your answer'];
+let last = null;
 async function check() {
   const text = msg.value.trim();
+  last = { text: msg.value, image: files.image, audio: files.audio };
   if (!text && !files.image && !files.audio) { toast('Paste a message or add a screenshot first 👆'); msg.focus(); return; }
   $('#go').disabled = true;
   $('#composer-view').hidden = true; $('#result-view').hidden = true; $('#scan-view').hidden = false;
@@ -112,8 +114,9 @@ async function check() {
 }
 
 /* ---------- result ---------- */
-const TITLES = { high: ['🚨 Scam alert!', "Don't reply, click, or pay."], medium: ['🤔 Hmm, be careful.', 'Some warning signs here.'], low: ['👍 No strong red flags', 'Still verify through the official phone number or app.'] };
-const COLOR = { high: '#ff4d5e', medium: '#ffaa1d', low: '#12b886' };
+const TITLES = { high: ['🚨 Scam alert!', "Don't reply, click, or pay."], medium: ['🤔 Hmm, be careful.', 'Some warning signs here.'], low: ['👍 No strong red flags', 'Still verify through the official phone number or app.'], unknown: ["🤷 Couldn't check this yet", "The AI check didn't go through this time."] };
+const COLOR = { high: '#ff4d5e', medium: '#ffaa1d', low: '#12b886', unknown: '#9a93b5' };
+function retry() { if (!last) return; msg.value = last.text; files.image = last.image; files.audio = last.audio; drawChips(); autosize(); check(); }
 function gauge(score, v) {
   const wrap = h('div', { class: 'gauge' }); const len = 172.8;
   wrap.innerHTML = `<svg viewBox="0 0 132 76"><path d="M11 70 A55 55 0 0 1 121 70" fill="none" stroke="#efe7f7" stroke-width="14" stroke-linecap="round"/><path class="arc" d="M11 70 A55 55 0 0 1 121 70" fill="none" stroke="${COLOR[v]}" stroke-width="14" stroke-linecap="round" stroke-dasharray="0 ${len}"/></svg>`;
@@ -151,6 +154,19 @@ function renderResult(r) {
   box.append(h('div', { class: 'res-top' }, h('button', { class: 'back', text: '← Check another', onclick: reset })));
   if (r.notice) box.append(h('div', { class: 'notice', text: '⚠️ ' + r.notice.trim() }));
 
+  // 0. could not check: never pretend it's fine
+  if (v === 'unknown') {
+    box.append(h('div', { class: 'card verdict unknown' },
+      h('div', { class: 'v-row' }, owl('v-owl mood-medium'), h('div', {}, h('div', { class: 'v-title', text: TITLES.unknown[0] }), h('div', { class: 'v-sub', text: TITLES.unknown[1] }))),
+      h('p', { class: 'summary', text: r.summary }),
+      h('div', { class: 'row' }, h('button', { class: 'btn big', text: '🔄 Try again', onclick: retry }), h('button', { class: 'btn soft big', text: 'Check something else', onclick: reset }))));
+    box.append(h('div', { class: 'card', style: 'animation-delay:.1s' }, h('h3', {}, '🛡️ Until then'),
+      h('ul', { class: 'todo' }, r.what_to_do.map(s => h('li', { onclick: e => e.currentTarget.classList.toggle('done') }, h('span', { class: 'box', text: '✓' }), h('span', { text: s }))))));
+    if (r.links?.length) box.append(xrayCard(r.links));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    return;
+  }
+
   // 1. verdict
   const vOwl = owl(`v-owl mood-${v}`);
   const card = h('div', { class: `card verdict ${v}` },
@@ -179,9 +195,7 @@ function renderResult(r) {
     flags.map(f => h('div', { class: 'flag' }, h('div', { class: 'quote' }, '“', h('mark', { text: f.quote }), '”', f.src ? h('span', { class: 'src', text: '⚡ ' + f.src }) : null), h('div', { class: 'why', text: f.explanation })))));
 
   // 4. link x-ray
-  if (r.links?.length) box.append(h('div', { class: 'card', style: 'animation-delay:.2s' }, h('h3', {}, '🔬 Link X-ray', h('small', { text: 'checked instantly, no AI guessing' })),
-    h('div', { class: 'xray' }, r.links.map(l => { const [a, b, cls] = XR[l.status](l);
-      return h('div', { class: `xr ${cls}` }, h('div', { class: 'u', text: l.url }), h('div', { class: 'lr' }, h('span', { class: `pill ${a[0]}`, text: a[1] }), b ? '→' : null, b ? h('span', { class: `pill ${b[0]}`, text: b[1] }) : null)); }))));
+  if (r.links?.length) box.append(xrayCard(r.links));
 
   // 5. what to do
   box.append(h('div', { class: 'card', style: 'animation-delay:.26s' }, h('h3', {}, '✅ What to do now'),
@@ -209,6 +223,11 @@ function renderResult(r) {
   box.append(h('div', { class: 'row', style: 'justify-content:center;margin-bottom:10px' }, h('button', { class: 'btn big', text: '🔍 Check another message', onclick: reset })));
   window.scrollTo({ top: 0, behavior: 'smooth' });
   if (v === 'high') setTimeout(() => vOwl.classList.add('mood-high'), 50);
+}
+function xrayCard(links) {
+  return h('div', { class: 'card', style: 'animation-delay:.2s' }, h('h3', {}, '🔬 Link X-ray', h('small', { text: 'checked instantly, no AI guessing' })),
+    h('div', { class: 'xray' }, links.map(l => { const [a, b, cls] = XR[l.status](l);
+      return h('div', { class: `xr ${cls}` }, h('div', { class: 'u', text: l.url }), h('div', { class: 'lr' }, h('span', { class: `pill ${a[0]}`, text: a[1] }), b ? '→' : null, b ? h('span', { class: `pill ${b[0]}`, text: b[1] }) : null)); })));
 }
 function uhOh() {
   const D = LIB.damage, help = h('div', { class: 'help' });

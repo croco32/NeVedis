@@ -53,6 +53,8 @@ cp .env.example .env          # then paste your key after GEMINI_API_KEY=
 
 Change the model in `config.py` (one line).
 
+**Free Gemini plan limits:** Google's free plan allows about 20 checks per day per model. NeVedis automatically falls back to the backup models listed in `config.py` when one runs out or is busy. If every model is unavailable, NeVedis says **"Couldn't check this yet"** instead of guessing. It only gives a rules-only verdict when the instant checks find real red flags. For heavier use, turn on billing for your key in Google AI Studio.
+
 ## Privacy
 
 Messages and files you check are sent to Google Gemini to be analyzed. Nothing is stored by NeVedis. The game and the field guide work fully offline.
