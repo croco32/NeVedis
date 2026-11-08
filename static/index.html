@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NeVedis · Don't fall for it</title>
+<meta name="description" content="Don't fall for it. Check before you pay. Paste a weird text, email, screenshot or call and NeVedis tells you if it's a scam.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦉</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div>
+
+<header class="nav">
+  <button class="brand" data-tab="check" aria-label="NeVedis home"><span class="mini-owl" data-mascot="mini"></span><span>NeVedis</span></button>
+  <nav class="tabs" role="tablist">
+    <button class="tab on" data-tab="check" role="tab">🔍 <span>Check</span></button>
+    <button class="tab" data-tab="game" role="tab">🎮 <span>Spot the scam</span></button>
+    <button class="tab" data-tab="guide" role="tab">📚 <span>Field guide</span></button>
+  </nav>
+</header>
+
+<main>
+  <!-- ============ CHECK ============ -->
+  <section id="tab-check" class="view on">
+    <div id="composer-view">
+      <div class="hero">
+        <div class="hero-owl" data-mascot="hero"></div>
+        <div class="bubble">Got a weird text, email or call? <b>Show me.</b> I'll tell you if it's a trick.</div>
+        <h1>Don't fall for it.<br><span class="hl">Check before you pay.</span></h1>
+      </div>
+
+      <form id="composer" class="composer" autocomplete="off">
+        <div class="drop-hint" aria-hidden="true">📥 Drop your screenshot or recording here</div>
+        <textarea id="msg" rows="4" placeholder="Paste the message here… a text, an email, or what the caller said.&#10;You can also drop or paste a screenshot (Ctrl/⌘+V) or a voice message."></textarea>
+        <div id="chips" class="chips"></div>
+        <div class="composer-bar">
+          <label class="attach" title="Add a screenshot or voice message">
+            <input id="file" type="file" accept="image/png,image/jpeg,image/webp,audio/mpeg,audio/wav,audio/x-wav,audio/mp4,audio/x-m4a,.m4a,.mp3,.wav" multiple hidden>
+            📎 <span>Screenshot or voice note</span>
+          </label>
+          <button id="go" class="go" type="submit">Check it <span class="arrow">→</span></button>
+        </div>
+      </form>
+      <div class="under">
+        <button id="surprise" class="linkish">🎲 Show me a scam example</button>
+        <span class="dot">·</span>
+        <button class="linkish" data-tab="guide"><b id="fam-count">28</b> kinds of scams we know</button>
+      </div>
+
+      <div class="perks">
+        <div class="perk"><span>🔬</span><b>Link X-ray</b><small>See where a link <i>really</i> goes</small></div>
+        <div class="perk"><span>🧠</span><b>Their game plan</b><small>Know the scammer's next move</small></div>
+        <div class="perk"><span>🆘</span><b>Already clicked?</b><small>Exact steps to fix it, fast</small></div>
+      </div>
+    </div>
+
+    <div id="scan-view" class="scan" hidden>
+      <div class="scan-owl" data-mascot="scan"></div>
+      <h2>Vedi is checking…</h2>
+      <ol id="scan-steps" class="scan-steps"></ol>
+      <div class="scan-bar"><i></i></div>
+      <p id="scan-tip" class="scan-tip"></p>
+    </div>
+
+    <div id="result-view" hidden></div>
+  </section>
+
+  <!-- ============ GAME ============ -->
+  <section id="tab-game" class="view">
+    <div class="game-head">
+      <div><h2>Spot the scam</h2><p>Scam or real? Train your scam radar. 40 real-world messages.</p></div>
+      <div class="scoreboard"><div><b id="g-score">0</b><small>points</small></div><div><b id="g-streak">0</b><small>🔥 streak</small></div><div><b id="g-best">0</b><small>best</small></div></div>
+    </div>
+    <div class="progress"><i id="g-progress"></i></div>
+    <div id="game-card" class="game-card"></div>
+  </section>
+
+  <!-- ============ GUIDE ============ -->
+  <section id="tab-guide" class="view">
+    <div class="guide-head">
+      <h2>Scam field guide</h2>
+      <p>The tricks scammers use most, in plain words. Tap one to learn its game plan.</p>
+      <input id="g-search" class="search" type="search" placeholder="Search: toll, grandma, Zelle, crypto, jury…">
+      <div id="g-fields" class="field-chips"></div>
+    </div>
+    <div id="g-grid" class="grid"></div>
+  </section>
+</main>
+
+<div id="sheet" class="sheet" hidden><div class="sheet-card" role="dialog" aria-modal="true"></div></div>
+<div id="toast" class="toast" hidden></div>
+<canvas id="confetti"></canvas>
+
+<footer>NeVedis gives advice, not a guarantee. Messages and files you check are sent to Google Gemini to be analyzed. When in doubt, call the company using the number on its official website, your card, or your bill.</footer>
+<script src="/static/app.js"></script>
+</body>
+</html>

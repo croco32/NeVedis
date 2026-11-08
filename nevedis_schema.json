@@ -1,0 +1,233 @@
+{
+  "type": "object",
+  "properties": {
+    "channel": {
+      "type": "string",
+      "enum": [
+        "sms",
+        "email",
+        "phone_call",
+        "voicemail",
+        "messenger",
+        "social_media",
+        "unknown"
+      ]
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "scam",
+        "phishing",
+        "spam_marketing",
+        "likely_legitimate",
+        "unclear"
+      ]
+    },
+    "scam_type": {
+      "type": "string",
+      "enum": [
+        "package_delivery",
+        "toll_road",
+        "bank_impersonation",
+        "verification_code",
+        "account_phishing",
+        "fake_check",
+        "government_irs",
+        "government_ssa",
+        "immigration",
+        "jury_duty",
+        "medicare",
+        "student_loan",
+        "relative_emergency",
+        "romance",
+        "sextortion",
+        "job_task",
+        "investment_crypto",
+        "wrong_number",
+        "marketplace",
+        "fake_store",
+        "rental_housing",
+        "tech_support",
+        "fake_invoice",
+        "utility_shutoff",
+        "qr_code",
+        "insurance_quote",
+        "prize_lottery",
+        "charity",
+        "other",
+        "none"
+      ],
+      "description": "The closest scam family id from the list in the instructions; 'none' if not a scam."
+    },
+    "three_p": {
+      "type": "object",
+      "properties": {
+        "pretext": {
+          "type": "object",
+          "properties": {
+            "present": {
+              "type": "boolean"
+            },
+            "claimed_identity": {
+              "type": "string"
+            },
+            "evidence": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "present",
+            "claimed_identity",
+            "evidence"
+          ]
+        },
+        "pressure": {
+          "type": "object",
+          "properties": {
+            "present": {
+              "type": "boolean"
+            },
+            "evidence": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "present",
+            "evidence"
+          ]
+        },
+        "payoff_ask": {
+          "type": "object",
+          "properties": {
+            "present": {
+              "type": "boolean"
+            },
+            "ask_type": {
+              "type": "string",
+              "enum": [
+                "money_transfer",
+                "gift_card_crypto_wire",
+                "login_credentials",
+                "one_time_code",
+                "personal_data",
+                "remote_access",
+                "click_link",
+                "call_number",
+                "move_to_other_app",
+                "none"
+              ]
+            },
+            "evidence": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "present",
+            "ask_type",
+            "evidence"
+          ]
+        }
+      },
+      "required": [
+        "pretext",
+        "pressure",
+        "payoff_ask"
+      ]
+    },
+    "hard_red_flags": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "unusual_payment_method",
+          "asks_for_code_or_password",
+          "government_payment_threat",
+          "remote_access_request",
+          "bank_security_service_script",
+          "lookalike_or_mismatched_link",
+          "sender_domain_mismatch_or_auth_fail",
+          "prompt_injection_attempt"
+        ]
+      }
+    },
+    "red_flags": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "quote": {
+            "type": "string",
+            "description": "Exact text from the item, original language"
+          },
+          "explanation": {
+            "type": "string",
+            "description": "In the user's language, one short sentence"
+          }
+        },
+        "required": [
+          "type",
+          "quote",
+          "explanation"
+        ]
+      }
+    },
+    "risk_score": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "verdict": {
+      "type": "string",
+      "enum": [
+        "high",
+        "medium",
+        "low"
+      ]
+    },
+    "confidence": {
+      "type": "string",
+      "enum": [
+        "high",
+        "medium",
+        "low"
+      ]
+    },
+    "summary": {
+      "type": "string",
+      "description": "1-2 simple sentences in the user's language"
+    },
+    "what_to_do": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "2-4 concrete next steps in the user's language"
+    },
+    "next_move": {
+      "type": "string",
+      "description": "In plain English, 1 sentence: what the scammer will most likely do or ask next if the person engages. Empty string if not a scam."
+    },
+    "share_warning": {
+      "type": "string",
+      "description": "A short, friendly warning (max 2 sentences) the person can send to family. Describe the trick, never include the person's private data or clickable links. Empty string if not a scam."
+    }
+  },
+  "required": [
+    "channel",
+    "category",
+    "scam_type",
+    "three_p",
+    "hard_red_flags",
+    "red_flags",
+    "risk_score",
+    "verdict",
+    "confidence",
+    "summary",
+    "what_to_do",
+    "next_move",
+    "share_warning"
+  ]
+}
